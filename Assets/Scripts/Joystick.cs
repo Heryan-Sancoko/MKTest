@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
 using UnityEngine;
 
 public class Joystick : MonoBehaviour
@@ -13,8 +14,9 @@ public class Joystick : MonoBehaviour
         Right, //4
     }
 
-    public Vector3 swipeOrigin;
-    public Vector3 swipePosition;
+    public Vector2 swipeOrigin, swipePosition;
+    public float swipeAngle;
+    public Image joystickImage, originImage;
     public swipeDirection mySwipeDirection;
 
 
@@ -32,16 +34,50 @@ public class Joystick : MonoBehaviour
 
     public void OnTouch()
     {
-        if (swipeOrigin == Vector3.zero)
+        if (Input.touches.Length != 0)
         {
-            swipeOrigin = Input.touches[0].position;
+            if (swipeOrigin == Vector2.zero)
+            {
+                swipeOrigin = Input.touches[0].position;
+                originImage.enabled = true;
+                originImage.transform.position = swipeOrigin;
+                joystickImage.enabled = true;
+            }
+            transform.position = swipePosition = Input.touches[0].position;
+
+            Vector2 dir = swipeOrigin - swipePosition;
+            swipeAngle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         }
-        transform.position = Input.touches[0].position;
     }
 
     public void OnRelease()
     {
+        joystickImage.enabled = false;
+        originImage.enabled = false;
 
+        if (swipeAngle < -45 && swipeAngle > -135)
+        {
+            //up
+            mySwipeDirection = swipeDirection.Up;
+        }
+        else if (swipeAngle < -135 || swipeAngle > 135)
+        {
+            //right
+            mySwipeDirection = swipeDirection.Right;
+        }
+        else if (swipeAngle < 135 && swipeAngle > 45)
+        {
+            //down
+            mySwipeDirection = swipeDirection.Down;
+        }
+        else if (swipeAngle < 45 || swipeAngle > -45)
+        {
+            //left
+            mySwipeDirection = swipeDirection.Left;
+        }
+
+
+        swipeOrigin = Vector2.zero;
     }
 
 }

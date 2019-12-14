@@ -62,7 +62,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Polydactyl\Asset Series\Quirky Series\Pets\Tortoise\Demo\DemoController.cs" />
+    <Compile Include="Assets\Scripts\Camera\CameraBehaviour.cs" />
+    <Compile Include="Assets\Scripts\ContainerManager.cs" />
+    <Compile Include="Assets\Scripts\ContainerScript.cs" />
+    <Compile Include="Assets\Scripts\InteractableObject.cs" />
     <Compile Include="Assets\Scripts\Joystick.cs" />
+    <Compile Include="Assets\Scripts\PlayerBehaviour.cs" />
     <Reference Include="Unity.Timeline.Editor">
       <HintPath>C:/Users/Heryan/Documents/Testing/MKTest/MKTest/Library/ScriptAssemblies/Unity.Timeline.Editor.dll</HintPath>
     </Reference>
