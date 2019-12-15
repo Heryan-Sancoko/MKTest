@@ -25,6 +25,7 @@ public class PlayerBehaviour : MonoBehaviour
     public ParticleSystem deathParticle;
     public DeathManager mDeathManager;
     public ScoreScript mScore;
+    private bool isHittingWall = false;
 
 
     private IEnumerator jump = null;
@@ -86,7 +87,6 @@ public class PlayerBehaviour : MonoBehaviour
         }
 
         falVel = rbody.velocity.y;
-        mSpeed = Mathf.Lerp(mSpeed, originalSpeed, 0.1f);
         rbody.velocity = new Vector3(mSpeed, rbody.velocity.y, rbody.velocity.z);
         if (fall == null)
         {
@@ -98,6 +98,19 @@ public class PlayerBehaviour : MonoBehaviour
         if (Camera.main.WorldToScreenPoint(transform.position).y < 0)
         {
             StartCoroutine(KillTortoise());
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.right, out hit, 0.7f, mRayLayerMask))
+        {
+            mSpeed = 0;
+        }
+        else
+        {
+            mSpeed = Mathf.Lerp(mSpeed, originalSpeed, 0.1f);
         }
     }
 
@@ -188,8 +201,17 @@ public class PlayerBehaviour : MonoBehaviour
         while (dashTime > 0)
         {
             mModel.localScale = Vector3.Lerp(mModel.localScale, (originalModelScale + (Vector3.forward * (originalModelScale.z * 0.4f)) - Vector3.up * (originalModelScale.y * 0.3f)), 0.3f);
-            mModel.localPosition = Vector3.Lerp(mModel.localPosition, new Vector3(originalModelPos.x - (Mathf.Abs(originalModelPos.x * 1)), mModel.localPosition.y, mModel.localPosition.z),0.3f);
-            mSpeed = originalSpeed * 2f;
+            mModel.localPosition = Vector3.Lerp(mModel.localPosition, new Vector3(originalModelPos.x - (Mathf.Abs(originalModelPos.x * 1)), mModel.localPosition.y, mModel.localPosition.z), 0.3f);
+
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, Vector3.right, out hit, 0.7f, mRayLayerMask))
+            {
+                mSpeed = 0;
+            }
+            else
+            {
+                mSpeed = originalSpeed * 2f;
+            }
             rbody.velocity = new Vector3(rbody.velocity.x, 0, rbody.velocity.z);
             rbody.useGravity = false;
             dashTime -= Time.deltaTime;
@@ -236,6 +258,7 @@ public class PlayerBehaviour : MonoBehaviour
                 RaycastHit hit;
                 if (Physics.Raycast(transform.position, Vector3.right, out hit, 1, mRayLayerMask))
                 {
+                    mSpeed = 0;
                 }
                 else
                 {
@@ -261,6 +284,7 @@ public class PlayerBehaviour : MonoBehaviour
                 RaycastHit hit;
                 if (Physics.Raycast(transform.position, Vector3.right, out hit, 1, mRayLayerMask))
                 {
+                    mSpeed = 0;
                 }
                 else
                 {

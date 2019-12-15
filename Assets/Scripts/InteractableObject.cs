@@ -50,7 +50,6 @@ public class InteractableObject : MonoBehaviour
         if (collision.gameObject.layer == 12 && gameObject.layer != 11)
         {
             collision.gameObject.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
-            Debug.Log("bonus added");
             mParticle.Play();
             transform.position = Vector3.down * 50;
         }
