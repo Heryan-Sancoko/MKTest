@@ -66,9 +66,11 @@
     <Compile Include="Assets\Scripts\Camera\CameraBehaviour.cs" />
     <Compile Include="Assets\Scripts\ContainerManager.cs" />
     <Compile Include="Assets\Scripts\ContainerScript.cs" />
+    <Compile Include="Assets\Scripts\DeathManager.cs" />
     <Compile Include="Assets\Scripts\InteractableObject.cs" />
     <Compile Include="Assets\Scripts\Joystick.cs" />
     <Compile Include="Assets\Scripts\PlayerBehaviour.cs" />
+    <Compile Include="Assets\Scripts\ScoreScript.cs" />
     <Reference Include="Unity.Timeline.Editor">
       <HintPath>C:/Users/Heryan/Documents/Testing/MKTest/MKTest/Library/ScriptAssemblies/Unity.Timeline.Editor.dll</HintPath>
     </Reference>

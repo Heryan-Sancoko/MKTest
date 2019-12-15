@@ -21,6 +21,10 @@ public class PlayerBehaviour : MonoBehaviour
     private Vector3 originalModelScale;
     private Vector3 originalModelPos;
     private bool isGrounded = false;
+    private bool isAlive = true;
+    public ParticleSystem deathParticle;
+    public DeathManager mDeathManager;
+    public ScoreScript mScore;
 
 
     private IEnumerator jump = null;
@@ -41,41 +45,44 @@ public class PlayerBehaviour : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        switch (mJoystick.mySwipeDirection)
+        if (isAlive)
         {
-            case Joystick.swipeDirection.Up:
-                if (jumpsRemaining > 0)
-                {
-                    mModel.localScale = mModel.localScale + (Vector3.up * (mModel.localScale.y * 1.5f));
+            switch (mJoystick.mySwipeDirection)
+            {
+                case Joystick.swipeDirection.Up:
+                    if (jumpsRemaining > 0)
+                    {
+                        mModel.localScale = mModel.localScale + (Vector3.up * (mModel.localScale.y * 1.5f));
+                        ResetCoroutines();
+                        jump = PlayerJump();
+                        StartCoroutine(jump);
+                    }
+                    break;
+                case Joystick.swipeDirection.Down:
                     ResetCoroutines();
-                    jump = PlayerJump();
-                    StartCoroutine(jump);
-                }
-                break;
-            case Joystick.swipeDirection.Down:
-                ResetCoroutines();
-                fall = PlayerFastFall();
-                StartCoroutine(fall);
-                break;
-            case Joystick.swipeDirection.Left:
-                if (dash != null)
-                {
-                    StopCoroutine(dash);
-                    mHitbox.SetActive(false);
-                    rbody.useGravity = true;
-                    isDashing = false;
-                }
-                slow = PlayerSlow();
-                StartCoroutine(slow);
-                break;
-            case Joystick.swipeDirection.Right:
-                if (dashesRemaining > 0)
-                {
-                    ResetCoroutines();
-                    dash = PlayerDash();
-                    StartCoroutine(dash);
-                }
-                break;
+                    fall = PlayerFastFall();
+                    StartCoroutine(fall);
+                    break;
+                case Joystick.swipeDirection.Left:
+                    if (dash != null)
+                    {
+                        StopCoroutine(dash);
+                        mHitbox.SetActive(false);
+                        rbody.useGravity = true;
+                        isDashing = false;
+                    }
+                    slow = PlayerSlow();
+                    StartCoroutine(slow);
+                    break;
+                case Joystick.swipeDirection.Right:
+                    if (dashesRemaining > 0)
+                    {
+                        ResetCoroutines();
+                        dash = PlayerDash();
+                        StartCoroutine(dash);
+                    }
+                    break;
+            }
         }
 
         falVel = rbody.velocity.y;
@@ -86,6 +93,40 @@ public class PlayerBehaviour : MonoBehaviour
             mModel.localScale = Vector3.Lerp(mModel.localScale, originalModelScale, 0.2f);
         }
         mModel.localPosition = Vector3.Lerp(mModel.localPosition, originalModelPos, 0.2f);
+
+        //on death
+        if (Camera.main.WorldToScreenPoint(transform.position).y < 0)
+        {
+            StartCoroutine(KillTortoise());
+        }
+    }
+
+    public IEnumerator KillTortoise()
+    {
+        isAlive = false;
+        mSpeed = 0;
+        originalSpeed = 0;
+        deathParticle.transform.parent = null;
+        deathParticle.gameObject.SetActive(true);
+        mModel.gameObject.SetActive(false);
+        float killTimer = 1;
+        while (killTimer > 0)
+        {
+            killTimer -= Time.deltaTime;
+            yield return null;
+        }
+
+        mDeathManager.enabled = true;
+        yield return null;
+    }
+
+    public IEnumerator TortiseSpinOut()
+    {
+        GetComponent<Collider>().enabled = false;
+        ResetCoroutines();
+        jump = PlayerJump();
+        StartCoroutine(jump);
+        yield return null;
     }
 
     private IEnumerator PlayerJump()
@@ -204,6 +245,11 @@ public class PlayerBehaviour : MonoBehaviour
                     mModel.localScale = (mModel.localScale + (Vector3.forward * (mModel.localScale.z * 0.4f)) - Vector3.up * (mModel.localScale.y * 0.3f));
                 }
                 break;
+            case 11:
+                isAlive = false;
+                StartCoroutine(TortiseSpinOut());
+                mModel.GetComponent<Animator>().SetBool("isAlive", isAlive);
+                break;
         }
     }
 
@@ -217,7 +263,10 @@ public class PlayerBehaviour : MonoBehaviour
                 {
                 }
                 else
+                {
+                    isGrounded = true;
                     dashesRemaining = 1;
+                }
                 break;
         }
     }

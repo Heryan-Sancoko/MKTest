@@ -47,8 +47,10 @@ public class InteractableObject : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.layer == 12)
+        if (collision.gameObject.layer == 12 && gameObject.layer != 11)
         {
+            collision.gameObject.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
+            Debug.Log("bonus added");
             mParticle.Play();
             transform.position = Vector3.down * 50;
         }
@@ -58,6 +60,10 @@ public class InteractableObject : MonoBehaviour
     {
         if (rbody.isKinematic && other.gameObject.layer == 8)
         {
+            if (gameObject.layer != 11)
+            {
+                other.transform.parent.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
+            }
             mParticle.Play();
             transform.position = Vector3.down * 50;
         }
