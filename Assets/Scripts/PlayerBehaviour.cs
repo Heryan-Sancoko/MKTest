@@ -48,6 +48,8 @@ public class PlayerBehaviour : MonoBehaviour
     {
         if (isAlive)
         {
+            originalSpeed += Time.deltaTime * 0.05f;
+
             switch (mJoystick.mySwipeDirection)
             {
                 case Joystick.swipeDirection.Up:
