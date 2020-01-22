@@ -10,6 +10,7 @@ public class InteractableObject : MonoBehaviour
     private Rigidbody rbody;
     private bool isGravityEnabled;
     public ParticleSystem mParticle;
+    public AudioSource mAudio;
 
     // Start is called before the first frame update
     void Awake()
@@ -45,26 +46,44 @@ public class InteractableObject : MonoBehaviour
         rbody.velocity = Vector3.zero;
     }
 
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (collision.gameObject.layer == 12 && gameObject.layer != 11)
-        {
-            collision.gameObject.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
-            mParticle.Play();
-            transform.position = Vector3.down * 50;
-        }
-    }
-
     private void OnTriggerEnter(Collider other)
     {
-        if (rbody.isKinematic && other.gameObject.layer == 8)
+        if (rbody.isKinematic && other.gameObject.layer == 8 || rbody.isKinematic && other.gameObject.layer == 12)
         {
             if (gameObject.layer != 11)
             {
-                other.transform.parent.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
+                if (other.gameObject.layer == 8)
+                {
+                    if (other.transform.parent && other.transform.parent.GetComponent<PlayerBehaviour>())
+                        other.transform.parent.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
+                    else
+                        Debug.Log("PlayerBehaviour script or parent does not exist on the trigger i've just entered");
+                }
+                else if (other.gameObject.layer == 12)
+                {
+                    if (other.GetComponent<PlayerBehaviour>())
+                        other.GetComponent<PlayerBehaviour>().mScore.watermelonBonus += 0.1f;
+                    else
+                        Debug.Log("PlayerBehaviour script does not exist on the trigger i've just entered");
+                }
+                if (mAudio != null)
+                    mAudio.Play();
+                else
+                    Debug.Log("No audio on this prefab");
+
+                if (mParticle != null)
+                    mParticle.Play();
+                else
+                    Debug.Log("No particle on this prefab");
+
+                transform.position = Vector3.down * 50;
             }
-            mParticle.Play();
-            transform.position = Vector3.down * 50;
+            else if (gameObject.layer == 11 && other.gameObject.layer == 8)
+            {
+                mAudio.Play();
+                mParticle.Play();
+                transform.position = Vector3.down * 50;
+            }
         }
     }
 }

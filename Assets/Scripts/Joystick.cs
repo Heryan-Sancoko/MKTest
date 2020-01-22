@@ -19,6 +19,13 @@ public class Joystick : MonoBehaviour
     public Image joystickImage, originImage;
     public swipeDirection mySwipeDirection;
 
+    //Added the following because the swipeDirection would remain until an action is performed.
+    //This led to the player being able to input a move while in the air and perform it much later
+    //once they hit the ground.
+    private float bufferTimer;
+    [SerializeField]
+    private float bufferLength = 0.2f;
+
 
     // Start is called before the first frame update
     void Start()
@@ -29,7 +36,20 @@ public class Joystick : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        TimeOutInputBuffer();
+    }
+
+    // Removes buffered input after the timer runs out.
+    private void TimeOutInputBuffer()
+    {
+        if (bufferTimer > 0)
+        {
+            bufferTimer -= Time.deltaTime;
+        }
+        else
+        {
+            mySwipeDirection = swipeDirection.None;
+        }
     }
 
     public void OnTouch()
@@ -76,7 +96,7 @@ public class Joystick : MonoBehaviour
             mySwipeDirection = swipeDirection.Left;
         }
 
-
+        bufferTimer = bufferLength;
         swipeOrigin = Vector2.zero;
     }
 

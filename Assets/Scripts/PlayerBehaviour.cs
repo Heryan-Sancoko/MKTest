@@ -4,35 +4,73 @@ using UnityEngine;
 
 public class PlayerBehaviour : MonoBehaviour
 {
-    public Joystick mJoystick;
-    public float jumpTime;
-    public float fallSpeed;
+
+    /*Quick overview of changes in this script:
+    1. Removed public variables and made them private
+    2. Removed all coroutines
+    3. Added player states
+    4. Added more comments
+    */
+    [SerializeField]
+    private Joystick mJoystick = null;
+    [SerializeField]
+    private float jumpTime = 0.5f;
+    private float dashTime;
+    private float airTime;
+    private float slowTime;
+    private float killTime = 1;
+    private float jumpThresh;
+    [SerializeField]
+    private float fallSpeed = -20;
     private Rigidbody rbody;
-    public float falVel;
-    public GameObject mHitbox;
-    public bool isDashing = false;
-    public bool isSlowing = false;
-    public float mSpeed;
+    [SerializeField]
+    private GameObject mHitbox = null;
+    [SerializeField]
+    private float mSpeed = 12;
     private float originalSpeed;
-    public int jumpsRemaining;
-    public int dashesRemaining;
-    public LayerMask mRayLayerMask;
-    public Transform mModel;
+    private int jumpsRemaining;
+    private int dashesRemaining;
+    [SerializeField]
+    private LayerMask mRayLayerMask = ~0;
+    [SerializeField]
+    private Transform mModel = null;
     private Vector3 originalModelScale;
     private Vector3 originalModelPos;
-    private bool isGrounded = false;
-    private bool isAlive = true;
-    public ParticleSystem deathParticle;
-    public DeathManager mDeathManager;
+    [SerializeField]
+    private ParticleSystem deathParticle = null;
+    [SerializeField]
+    private DeathManager mDeathManager = null;
     public ScoreScript mScore;
-    private bool isHittingWall = false;
+
+    //Sound variables ==========================================//
+
+    public AudioSource jumpSound, landSound, slowSound, dashSound, dyingSound, bgm;
 
 
-    private IEnumerator jump = null;
-    private IEnumerator fall = null;
-    private IEnumerator slow = null;
-    private IEnumerator dash = null;
+    //End Sound variables ======================================//
+    //Player States ============================================//
 
+    //Player can either be jumping OR fastfalling
+    private enum airState {neutral, jumping, fastFalling};
+    private airState mAirstate = airState.neutral;
+
+    //Player can either be dashing OR slowing
+    private enum speedState {neutral, dashing, slowing};
+    private speedState mSpeedState = speedState.neutral;
+
+    //Player is either grounded or in the air
+    private bool isGrounded = false;
+
+    //Player is either alive or dead
+    private bool isAlive = true;
+
+    //Displays the latest state the player has been in.
+    //This is used to trigger the audio cues and could be used
+    //to trigger animations if so desired.
+    public enum latestState { neutral, jumping, fastFalling, slowing, dashing, justLanded};
+    public latestState myLatestState = latestState.neutral;
+
+    //End Player States ========================================//
 
     // Start is called before the first frame update
     void Start()
@@ -48,58 +86,157 @@ public class PlayerBehaviour : MonoBehaviour
     {
         if (isAlive)
         {
+            //slooowly ramp up the speed
             originalSpeed += Time.deltaTime * 0.05f;
 
+            //Take the joystick swipe direction and act accordingly
             switch (mJoystick.mySwipeDirection)
             {
                 case Joystick.swipeDirection.Up:
                     if (jumpsRemaining > 0)
                     {
-                        mModel.localScale = mModel.localScale + (Vector3.up * (mModel.localScale.y * 1.5f));
-                        ResetCoroutines();
-                        jump = PlayerJump();
-                        StartCoroutine(jump);
+                        ResetPlayerState();
+                        SetPlayerJump();
                     }
                     break;
                 case Joystick.swipeDirection.Down:
-                    ResetCoroutines();
-                    fall = PlayerFastFall();
-                    StartCoroutine(fall);
+                    ResetPlayerState();
+                    SetPlayerFastFall();
                     break;
                 case Joystick.swipeDirection.Left:
-                    if (dash != null)
+                    if (mSpeedState == speedState.dashing)
                     {
-                        StopCoroutine(dash);
-                        mHitbox.SetActive(false);
-                        rbody.useGravity = true;
-                        isDashing = false;
+                        EndPlayerDash();
                     }
-                    slow = PlayerSlow();
-                    StartCoroutine(slow);
+                    SetPlayerSlow();
                     break;
                 case Joystick.swipeDirection.Right:
                     if (dashesRemaining > 0)
                     {
-                        ResetCoroutines();
-                        dash = PlayerDash();
-                        StartCoroutine(dash);
+                        ResetPlayerState();
+                        SetPlayerDash();
                     }
                     break;
             }
+
+            // Dash or slow depending on the player's state
+            switch (mSpeedState)
+            {
+                case speedState.dashing:
+                    PlayerDash();
+                    break;
+                case speedState.slowing:
+                    PlayerSlow();
+                    break;
+            }
+
+            switch (mAirstate)
+            {
+                case airState.fastFalling:
+                    PlayerFastFall();
+                    break;
+                case airState.jumping:
+                    PlayerJump();
+                    break;
+            }
+
+            //The model deactivates upon falling offscreen.
+        }  //When this happens, wait for 1 second, then activate the death screen.
+        else if (!mModel.gameObject.activeSelf)
+        {
+            if (killTime > 0)
+            {
+                killTime -= Time.deltaTime;
+            }
+            else
+            {
+
+
+                mDeathManager.enabled = true;
+                gameObject.SetActive(false);
+            }
+        }
+        else
+        {
+            //Player needs to jump one last time upon running into a rock
+            if (mAirstate == airState.jumping)
+            {
+                PlayerJump();
+            }
         }
 
-        falVel = rbody.velocity.y;
+
+
+
+        //Make the tortoise move forward
         rbody.velocity = new Vector3(mSpeed, rbody.velocity.y, rbody.velocity.z);
-        if (fall == null)
+
+        //Rescale model to regular size
+        if (mAirstate != airState.fastFalling && mSpeedState != speedState.dashing)
         {
             mModel.localScale = Vector3.Lerp(mModel.localScale, originalModelScale, 0.2f);
         }
-        mModel.localPosition = Vector3.Lerp(mModel.localPosition, originalModelPos, 0.2f);
 
-        //on death
-        if (Camera.main.WorldToScreenPoint(transform.position).y < 0)
+        //Death is triggered when the tortoise falls offscreen
+        if (Camera.main.WorldToScreenPoint(transform.position).y < 0 && mModel.gameObject.activeSelf)
         {
-            StartCoroutine(KillTortoise());
+            KillTortoise();
+        }
+
+        //Play sound based on player's latest state
+        PlayPlayerSound();
+    }
+
+    //Play sound based on player's latest state
+    private void PlayPlayerSound()
+    {
+        switch (myLatestState)
+        {
+            case latestState.jumping:
+                if (isAlive)
+                {
+                    RandomizePitch(jumpSound);
+                    jumpSound.Play();
+                }
+                else
+                {
+                    dyingSound.Play();
+                }
+                myLatestState = latestState.neutral;
+                break;
+            case latestState.dashing:
+                RandomizePitch(dashSound);
+                dashSound.Play();
+                myLatestState = latestState.neutral;
+                break;
+            case latestState.slowing:
+                RandomizePitch(slowSound);
+                slowSound.Play();
+                myLatestState = latestState.neutral;
+                break;
+            case latestState.justLanded:
+                RandomizePitch(landSound);
+                landSound.Play();
+                myLatestState = latestState.neutral;
+                break;
+        }
+    }
+
+    private void RandomizePitch(AudioSource mAudio)
+    {
+        if (mAudio != dashSound)
+            mAudio.pitch = 1 + (Random.Range(-0.5f, 0.5f));
+        else
+        {
+            mAudio.pitch = Random.Range(1f, 2f);
+            if (mAudio.pitch > 1.5f)
+            {
+                mAudio.pitch = 1.5f;
+            }
+            else
+            {
+                mAudio.pitch = 1;
+            }
         }
     }
 
@@ -116,91 +253,147 @@ public class PlayerBehaviour : MonoBehaviour
         }
     }
 
-    public IEnumerator KillTortoise()
+    public void KillTortoise() // this happens as soon as the tortoise falls offscreen
     {
         isAlive = false;
         mSpeed = 0;
         originalSpeed = 0;
         deathParticle.transform.parent = null;
+        bgm.Stop();
         deathParticle.gameObject.SetActive(true);
         mModel.gameObject.SetActive(false);
-        float killTimer = 1;
-        while (killTimer > 0)
-        {
-            killTimer -= Time.deltaTime;
-            yield return null;
-        }
-
-        mDeathManager.enabled = true;
-        yield return null;
     }
 
-    public IEnumerator TortiseSpinOut()
+    public void TortiseSpinOut() // This happens when the tortoise hits a rock
     {
         GetComponent<Collider>().enabled = false;
-        ResetCoroutines();
-        jump = PlayerJump();
-        StartCoroutine(jump);
-        yield return null;
+        ResetPlayerState();
+        jumpsRemaining = 1;
+        SetPlayerJump();
     }
 
-    private IEnumerator PlayerJump()
+    // PLAYER JUMP CODE BELOW ===================================================== PLAYER JUMP CODE BELOW//
+
+    private void SetPlayerJump()
     {
         mJoystick.mySwipeDirection = Joystick.swipeDirection.None;
+        mAirstate = airState.jumping;
+        mModel.localScale = mModel.localScale + (Vector3.up * (mModel.localScale.y * 1.5f));
         jumpsRemaining--;
-        float airTime = jumpTime;
-        float jumpThresh = transform.position.y + 4.38f;
-        while (airTime > 0)
+        airTime = jumpTime;
+        jumpThresh = transform.position.y + 4.38f;
+        myLatestState = latestState.jumping;
+    }
+
+    private void EndPlayerJump()
+    {
+        rbody.useGravity = true;
+        mAirstate = airState.neutral;
+        myLatestState = latestState.neutral;
+    }
+
+    private void PlayerJump()
+    {
+        if (airTime > 0)
         {
             rbody.velocity = new Vector3(rbody.velocity.x, 0, rbody.velocity.z);
             rbody.useGravity = false;
             transform.position = Vector3.Lerp(transform.position, new Vector3(transform.position.x, jumpThresh, transform.position.z), 0.2f);
             airTime -= Time.deltaTime;
-            yield return null;
         }
-        rbody.useGravity = true;
-        jump = null;
-        yield return null;
-    }
-
-    private IEnumerator PlayerFastFall()
-    {
-        mJoystick.mySwipeDirection = Joystick.swipeDirection.None;
-        rbody.useGravity = true;
-        rbody.velocity = new Vector3(rbody.velocity.x, fallSpeed, rbody.velocity.z);
-        while (!isGrounded)
+        else if (airTime <= 0 && mAirstate == airState.jumping)
         {
-            mModel.localScale = Vector3.Lerp(mModel.localScale, originalModelScale + (Vector3.up * (mModel.localScale.y * 0.3f)), 0.2f);
-            yield return null;
+            EndPlayerJump();
         }
-        fall = null;
-        yield return null;
     }
 
-    private IEnumerator PlayerSlow()
+    // END PLAYER JUMP CODE =====================================================END PLAYER JUMP CODE//
+    // PLAYER FASTFALL CODE BELOW ===================================================== PLAYER FASTFALL CODE BELOW//
+
+    private void SetPlayerFastFall()
     {
         mJoystick.mySwipeDirection = Joystick.swipeDirection.None;
-        isSlowing = true;
-        float slowTime = jumpTime;
-        while (slowTime > 0)
+        rbody.useGravity = true;
+        mAirstate = airState.fastFalling;
+        rbody.velocity = new Vector3(rbody.velocity.x, fallSpeed, rbody.velocity.z);
+        myLatestState = latestState.fastFalling;
+    }
+
+    private void EndPlayerFastFall()
+    {
+        mAirstate = airState.neutral;
+        myLatestState = latestState.neutral;
+    }
+
+    private void PlayerFastFall()
+    {
+        if (!isGrounded)
+        {
+            mModel.localScale = Vector3.Lerp(mModel.localScale, new Vector3 (originalModelScale.x, originalModelScale.y * 2f, originalModelScale.z * 0.5f), 0.25f);
+        }
+        else if (isGrounded && mAirstate == airState.fastFalling)
+        {
+            EndPlayerFastFall();
+            myLatestState = latestState.justLanded;
+        }
+    }
+
+    // END PLAYER FASTFALL CODE =====================================================END PLAYER FASTFALL CODE//
+    // PLAYER SLOW CODE BELOW ===================================================== PLAYER SLOW CODE BELOW//
+
+    private void SetPlayerSlow()
+    {
+        mJoystick.mySwipeDirection = Joystick.swipeDirection.None;
+        mSpeedState = speedState.slowing;
+        slowTime = jumpTime;
+        myLatestState = latestState.slowing;
+    }
+
+    private void EndPlayerSlow()
+    {
+        mSpeedState = speedState.neutral;
+        myLatestState = latestState.neutral;
+    }
+
+    private void PlayerSlow()
+    {
+        if (slowTime > 0)
         {
             mSpeed = originalSpeed * 0.5f;
             slowTime -= Time.deltaTime;
-            yield return null;
         }
-        isSlowing = false;
-        slow = null;
-        yield return null;
+        else if (slowTime <= 0 && mSpeedState == speedState.slowing)
+        {
+            EndPlayerSlow();
+        }
     }
 
-    private IEnumerator PlayerDash()
+    // END PLAYER SLOW CODE =====================================================END PLAYER SLOW CODE//
+    // PLAYER DASH CODE BELOW ===================================================== PLAYER DASH CODE BELOW//
+
+    private void SetPlayerDash()
     {
         mJoystick.mySwipeDirection = Joystick.swipeDirection.None;
         dashesRemaining--;
-        isDashing = true;
+        mSpeedState = speedState.dashing;
         mHitbox.SetActive(true);
-        float dashTime = jumpTime;
-        while (dashTime > 0)
+        rbody.useGravity = false;
+        dashTime = jumpTime;
+        myLatestState = latestState.dashing;
+    }
+
+    private void EndPlayerDash()
+    {
+        mSpeedState = speedState.neutral;
+        mHitbox.SetActive(false);
+        rbody.useGravity = true;
+        myLatestState = latestState.neutral;
+    }
+
+    private void PlayerDash()
+    {
+
+        if (dashTime > 0)
         {
             mModel.localScale = Vector3.Lerp(mModel.localScale, (originalModelScale + (Vector3.forward * (originalModelScale.z * 0.4f)) - Vector3.up * (originalModelScale.y * 0.3f)), 0.3f);
             mModel.localPosition = Vector3.Lerp(mModel.localPosition, new Vector3(originalModelPos.x - (Mathf.Abs(originalModelPos.x * 1)), mModel.localPosition.y, mModel.localPosition.z), 0.3f);
@@ -215,40 +408,39 @@ public class PlayerBehaviour : MonoBehaviour
                 mSpeed = originalSpeed * 2f;
             }
             rbody.velocity = new Vector3(rbody.velocity.x, 0, rbody.velocity.z);
-            rbody.useGravity = false;
             dashTime -= Time.deltaTime;
-            yield return null;
         }
-        isDashing = false;
-        mHitbox.SetActive(false);
-        rbody.useGravity = true;
-        dash = null;
-        yield return null;
+        else if (dashTime <= 0 && mSpeedState == speedState.dashing)
+        {
+            EndPlayerDash();
+        }
     }
 
-    public void ResetCoroutines()
+    // END PLAYER DASH CODE =====================================================END PLAYER DASH CODE//
+
+    public void ResetPlayerState()
     {
-        if (dash != null)
+        if (mSpeedState == speedState.dashing)
         {
-            StopCoroutine(dash);
-            mHitbox.SetActive(false);
-            isDashing = false;
-            dash = null;
+            EndPlayerDash();
         }
 
-        if (slow != null)
+        if (mAirstate == airState.jumping)
         {
-            StopCoroutine(slow);
-            isSlowing = false;
-            slow = null;
+            EndPlayerJump();
         }
 
-        if (jump != null)
+        if (mAirstate == airState.fastFalling)
         {
-            StopCoroutine(jump);
-            jump = null;
+            EndPlayerFastFall();
         }
 
+        if (mSpeedState == speedState.slowing)
+        {
+            EndPlayerSlow();
+        }
+
+        myLatestState = latestState.neutral;
         rbody.useGravity = true;
     }
 
@@ -264,15 +456,19 @@ public class PlayerBehaviour : MonoBehaviour
                 }
                 else
                 {
+                    //Recharge jump and dash charges
                     isGrounded = true;
+                    myLatestState = latestState.justLanded;
                     jumpsRemaining = 1;
                     dashesRemaining = 1;
+
+                    //Upon landing, squash the model
                     mModel.localScale = (mModel.localScale + (Vector3.forward * (mModel.localScale.z * 0.4f)) - Vector3.up * (mModel.localScale.y * 0.3f));
                 }
                 break;
             case 11:
                 isAlive = false;
-                StartCoroutine(TortiseSpinOut());
+                TortiseSpinOut();
                 mModel.GetComponent<Animator>().SetBool("isAlive", isAlive);
                 break;
         }

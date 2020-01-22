@@ -66,6 +66,7 @@
     <Compile Include="Assets\Scripts\BGScroll.cs" />
     <Compile Include="Assets\Scripts\Camera\CameraBehaviour.cs" />
     <Compile Include="Assets\Scripts\ContainerManager.cs" />
+    <Compile Include="Assets\Scripts\ContainerPool.cs" />
     <Compile Include="Assets\Scripts\ContainerScript.cs" />
     <Compile Include="Assets\Scripts\DeathManager.cs" />
     <Compile Include="Assets\Scripts\InteractableObject.cs" />
